@@ -2,7 +2,7 @@
 // Everything the page needs (including the OCR engine and language data) is
 // stored on the phone on the first visit, so later visits need no network.
 // Bump VERSION whenever any cached file changes.
-const VERSION = 'c2w-v5';
+const VERSION = 'c2w-v6';
 const SCOPE_PATH = new URL('./', self.location).pathname;
 
 const SHELL = [
@@ -60,7 +60,7 @@ self.addEventListener('fetch', (event) => {
 
   // The app page: try the network first so edits (like the message) show up
   // right away, but give up after a few seconds on a weak signal and use the
-  // saved copy. Other pages (e.g. catalog.pdf) are left alone.
+  // saved copy. Other pages (e.g. PDFs) are left alone.
   const isAppPage = url.pathname === SCOPE_PATH || url.pathname === SCOPE_PATH + 'index.html';
   if (req.mode === 'navigate' && isAppPage) {
     event.respondWith((async () => {
