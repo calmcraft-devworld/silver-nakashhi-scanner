@@ -424,7 +424,12 @@
   try { framed = window.self !== window.top; } catch (e) { framed = true; }
   if (framed) frameNote.hidden = false;
 
-  const DEFAULT_TEMPLATE = "Hi! 😊 Thank you for stopping by {{business}} at the exhibition today. Sharing our catalog and visiting card here — do take a look, and feel free to reach out anytime for orders or questions.\n\nWarm regards,\n{{business}}";
+  // Links dropped into the message. A line whose link is empty is left out.
+  const CATALOG_URL = 'https://calmcraft-devworld.github.io/silver-nakashhi-scanner/catalog.pdf';
+  const INSTAGRAM_URL = '';
+  const DEFAULT_BUSINESS = 'Royal Paintings';
+
+  const DEFAULT_TEMPLATE = "Hi! 😊\n\nIt was so lovely meeting you at our {{business}} stall at the SSI exhibition today. Thank you for stopping by!\n\nI\u2019ve shared our catalog and visiting card here. Have a look whenever you get a moment, and message us anytime if something catches your eye or you have any questions.\n\n📖 Catalog: {{catalog}}\n📸 Instagram: {{instagram}}\n\nAnd don\u2019t worry, this is just a way for us to stay in touch, so you can get to know us better and we can hear what you\u2019re looking for. 🙏\n\nWarm regards,\n{{business}}";
 
   // --- persistence (per-device convenience only) ---
   function safeGet(key, fallback) {
@@ -435,17 +440,28 @@
     try { localStorage.setItem(key, value); } catch (e) { /* ignore */ }
   }
 
-  const savedBusiness = safeGet('c2w_business', '');
-  const savedTemplate = safeGet('c2w_template', DEFAULT_TEMPLATE);
+  function fillTemplate(template, business) {
+    const links = { catalog: CATALOG_URL, instagram: INSTAGRAM_URL };
+    return template
+      .split('\n')
+      .filter((line) => !/\{\{(catalog|instagram)\}\}/.test(line) || links[line.match(/\{\{(catalog|instagram)\}\}/)[1]])
+      .join('\n')
+      .replace(/\{\{(catalog|instagram)\}\}/g, (m, k) => links[k])
+      .replace(/\{\{business\}\}/g, business || '[Your Business Name]');
+  }
+
+  // v2 key: phones that tried the earlier wording pick up the new default.
+  const savedBusiness = safeGet('c2w_business', DEFAULT_BUSINESS);
+  const savedTemplate = safeGet('c2w_template_v2', DEFAULT_TEMPLATE);
   businessName.value = savedBusiness;
-  messageBox.value = savedTemplate.replace(/\{\{business\}\}/g, savedBusiness || '[Your Business Name]');
+  messageBox.value = fillTemplate(savedTemplate, savedBusiness);
 
   businessName.addEventListener('input', () => {
     safeSet('c2w_business', businessName.value);
   });
   messageBox.addEventListener('input', () => {
     // store raw text as the template going forward (no further placeholder substitution)
-    safeSet('c2w_template', messageBox.value);
+    safeSet('c2w_template_v2', messageBox.value);
   });
 
   function buildWaLink() {
