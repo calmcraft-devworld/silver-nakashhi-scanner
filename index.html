@@ -314,8 +314,8 @@
     </div>
     <div class="hint" id="numberHint">Not detected yet — type it in once you have it, or edit what was found.</div>
     <div class="field" style="margin-top:14px">
-      <label for="visitorName">Name / company (optional)</label>
-      <input type="text" id="visitorName" placeholder="e.g. Priya, Meera Jewellers">
+      <label for="visitorName">Visitor's name (optional — personalises the greeting)</label>
+      <input type="text" id="visitorName" placeholder="e.g. Priya Sharma" autocapitalize="words">
     </div>
   </div>
 
@@ -456,17 +456,37 @@
   businessName.value = savedBusiness;
   messageBox.value = fillTemplate(savedTemplate, savedBusiness);
 
+  // Greeting: "Hi! 😊" becomes "Hi Priya ji! 😊" once a visitor name is typed.
+  // Only the opening "Hi…!" is touched, so the rest of the message stays as edited.
+  const GREETING_RE = /^Hi(?: [^!\n]*? ji)?\s*!/;
+  function firstName() {
+    const first = visitorName.value.trim().split(/[\s,.]+/)[0] || '';
+    return first ? first.charAt(0).toUpperCase() + first.slice(1) : '';
+  }
+  function applyGreeting() {
+    if (!GREETING_RE.test(messageBox.value)) return;
+    const name = firstName();
+    messageBox.value = messageBox.value.replace(GREETING_RE, name ? 'Hi ' + name + ' ji!' : 'Hi!');
+  }
+  // What gets remembered on this phone is the message without anyone's name.
+  function genericMessage() {
+    return messageBox.value.replace(GREETING_RE, 'Hi!');
+  }
+  visitorName.addEventListener('input', () => { applyGreeting(); updateSendState(); });
+  applyGreeting();
+
   businessName.addEventListener('input', () => {
     safeSet('c2w_business', businessName.value);
   });
   document.getElementById('resetMsgBtn').addEventListener('click', () => {
     try { localStorage.removeItem('c2w_template_v3'); } catch (e) { /* ignore */ }
     messageBox.value = fillTemplate(DEFAULT_TEMPLATE, businessName.value.trim() || DEFAULT_BUSINESS);
+    applyGreeting();
     updateSendState();
   });
   messageBox.addEventListener('input', () => {
     // store raw text as the template going forward (no further placeholder substitution)
-    safeSet('c2w_template_v3', messageBox.value);
+    safeSet('c2w_template_v3', genericMessage());
   });
 
   function buildWaLink() {
@@ -873,6 +893,7 @@
     visitor = { id: newId(), createdAt: new Date().toISOString(), ocrText: '', interests: [] };
     numberInput.value = '';
     visitorName.value = '';
+    applyGreeting();
     notesBox.value = '';
     fileInput.value = '';
     previewRow.style.display = 'none';
