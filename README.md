@@ -19,6 +19,13 @@ WhatsApp queues the message until it has some.
 Tip: open the page once on good Wi-Fi before the exhibition, then use the
 browser's **Add to Home screen** so it opens like an app.
 
+## Visitor log in Google Sheets
+
+Each visitor (number, name, what they're interested in, notes) is saved on the
+phone and pushed to a Google Sheet in the background, retrying until it gets
+through. Setup: [`apps-script/README.md`](apps-script/README.md). No URLs or
+secrets are kept in this repo; they're entered on each phone.
+
 ## Hosting on GitHub Pages
 
 1. Pages on a **private** repo needs a paid GitHub plan. On a free account,

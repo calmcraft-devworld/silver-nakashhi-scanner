@@ -228,6 +228,59 @@
     font-size: 0.8rem !important;
     padding: 10px 12px !important;
   }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.86rem;
+    cursor: pointer;
+  }
+  .chip[aria-pressed="true"] {
+    background: var(--brass);
+    border-color: var(--brass);
+    color: #1c1b1a;
+  }
+  textarea.short { min-height: 64px; }
+  .row-btns { display: flex; gap: 10px; margin-top: 10px; }
+  .row-btns .copy-btn { margin-top: 0; }
+  .next-btn {
+    display: block;
+    width: 100%;
+    margin-top: 18px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--silver-dim);
+    background: transparent;
+    color: var(--ink);
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  .sync-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+  }
+  .sync-bar .ok { color: var(--brass); }
+  .sync-bar .warn { color: var(--danger); }
+  details.settings {
+    margin-top: 18px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    background: var(--bg-panel);
+  }
+  details.settings summary { cursor: pointer; font-size: 0.86rem; color: var(--ink-dim); }
+  details.settings[open] summary { margin-bottom: 14px; }
   footer {
     text-align: center;
     font-size: 0.76rem;
@@ -260,10 +313,25 @@
       <input type="tel" id="numberInput" placeholder="+91 98765 43210" inputmode="tel">
     </div>
     <div class="hint" id="numberHint">Not detected yet — type it in once you have it, or edit what was found.</div>
+    <div class="field" style="margin-top:14px">
+      <label for="visitorName">Name / company (optional)</label>
+      <input type="text" id="visitorName" placeholder="e.g. Priya, Meera Jewellers">
+    </div>
   </div>
 
   <div class="step">
-    <div class="step-label"><span class="step-num">3</span> Your message</div>
+    <div class="step-label"><span class="step-num">3</span> What are they looking for?</div>
+    <div class="field">
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="field">
+      <label for="notesBox">Requirements / notes</label>
+      <textarea id="notesBox" class="short" placeholder="e.g. 2 kg dinner set for wedding in Dec, wants engraved names"></textarea>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-label"><span class="step-num">4</span> Your message</div>
     <div class="field">
       <label for="businessName">Your business name (saved on this phone)</label>
       <input type="text" id="businessName" placeholder="e.g. Anand Silver House">
@@ -282,8 +350,40 @@
   <button class="copy-btn" id="copyBtn" type="button" aria-disabled="true">Copy WhatsApp link instead</button>
   <input type="text" id="linkOut" class="link-out" readonly hidden aria-label="WhatsApp link">
   <div class="hint" id="sendHint">WhatsApp will open with everything filled in — you just tap Send there.</div>
+  <button class="copy-btn" id="saveOnlyBtn" type="button">Save visitor without WhatsApp</button>
 
-  <footer>Runs entirely in your browser. Nothing is uploaded anywhere.<br><span id="offlineStatus"></span></footer>
+  <button class="next-btn" id="nextBtn" type="button">＋ Next visitor</button>
+
+  <div class="sync-bar">
+    <span id="todayCount"></span>
+    <span id="syncStatus"></span>
+  </div>
+
+  <details class="settings" id="settings">
+    <summary>Google Sheet sync &amp; settings</summary>
+    <div class="field">
+      <label for="sheetUrl">Apps Script web app URL</label>
+      <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="sheetKey">Secret phrase (same as in the script)</label>
+      <input type="text" id="sheetKey" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="deviceName">This phone's name (shows in the sheet)</label>
+      <input type="text" id="deviceName" placeholder="e.g. Counter 1">
+    </div>
+    <div class="field">
+      <label for="chipList">Interest buttons (comma separated)</label>
+      <textarea id="chipList" class="short"></textarea>
+    </div>
+    <div class="row-btns">
+      <button class="copy-btn" id="testSyncBtn" type="button">Test &amp; sync now</button>
+    </div>
+    <div class="hint" id="settingsHint">Visitors are saved on this phone first and sent to the sheet whenever there's signal.</div>
+  </details>
+
+  <footer>Card photos never leave this phone. Visitor details go only to your Google Sheet.<br><span id="offlineStatus"></span></footer>
 </div>
 
 <script src="vendor/tesseract/tesseract.min.js"></script>
@@ -304,6 +404,19 @@
   const ocrDetail = document.getElementById('ocrDetail');
   const frameNote = document.getElementById('frameNote');
   const linkOut = document.getElementById('linkOut');
+  const visitorName = document.getElementById('visitorName');
+  const chipsEl = document.getElementById('chips');
+  const notesBox = document.getElementById('notesBox');
+  const saveOnlyBtn = document.getElementById('saveOnlyBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const todayCount = document.getElementById('todayCount');
+  const syncStatus = document.getElementById('syncStatus');
+  const sheetUrl = document.getElementById('sheetUrl');
+  const sheetKey = document.getElementById('sheetKey');
+  const deviceName = document.getElementById('deviceName');
+  const chipList = document.getElementById('chipList');
+  const testSyncBtn = document.getElementById('testSyncBtn');
+  const settingsHint = document.getElementById('settingsHint');
 
   // Published Artifacts render inside an iframe; some in-app browsers won't let
   // a framed page hand off to WhatsApp, so say so up front.
@@ -359,6 +472,7 @@
   copyBtn.addEventListener('click', async () => {
     if (copyBtn.getAttribute('aria-disabled') === 'true') return;
     const link = buildWaLink();
+    recordVisitor(true);
     sendHint.classList.remove('warn');
     if (await copyText(link)) {
       linkOut.hidden = true;
@@ -475,6 +589,7 @@
       if (timedOut) return;
 
       const text = (result && result.data && result.data.text) || '';
+      visitor.ocrText = text.trim();
       const candidate = extractPhoneNumber(text);
 
       if (candidate) {
@@ -525,6 +640,7 @@
       return;
     }
     // href is already set to the live wa.me link; let the browser navigate natively.
+    recordVisitor(true);
     sendHint.classList.remove('warn');
     sendHint.textContent = 'Opening WhatsApp — tap Send there to finish.';
 
@@ -546,6 +662,222 @@
         : 'WhatsApp didn\u2019t seem to open. Tap “Copy WhatsApp link” and paste it into your browser.';
     }, 2500);
   });
+
+  // --- visitor log → Google Sheet ---
+  // Each visitor is written to a queue on this phone first, then sent to the
+  // Apps Script web app in the background. Rows are keyed by visitor id, so a
+  // resend after a dropped connection updates the row instead of duplicating it.
+  const DEFAULT_CHIPS = 'Pooja items, Idols, Utensils & tableware, Gift items, Jewellery, Custom / engraving, Wholesale / bulk';
+
+  function newId() {
+    try { if (crypto.randomUUID) return crypto.randomUUID(); } catch (e) { /* older browsers */ }
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  }
+  function loadJson(key, fallback) {
+    try { const v = JSON.parse(safeGet(key, '')); return v == null ? fallback : v; }
+    catch (e) { return fallback; }
+  }
+
+  let visitor = { id: newId(), createdAt: new Date().toISOString(), ocrText: '', interests: [] };
+  let queue = loadJson('c2w_queue', []);       // records not yet confirmed by the sheet
+  let log = loadJson('c2w_log', {});           // { 'YYYY-MM-DD': [ids] } for the daily count
+
+  // One-time setup link: …/#sheet=<url>&key=<secret>&device=<name>
+  (function readSetupHash() {
+    if (!location.hash.includes('sheet=')) return;
+    const params = new URLSearchParams(location.hash.slice(1));
+    if (params.get('sheet')) safeSet('c2w_sheet_url', params.get('sheet'));
+    if (params.get('key')) safeSet('c2w_sheet_key', params.get('key'));
+    if (params.get('device')) safeSet('c2w_device', params.get('device'));
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignore */ }
+  })();
+
+  sheetUrl.value = safeGet('c2w_sheet_url', '');
+  sheetKey.value = safeGet('c2w_sheet_key', '');
+  deviceName.value = safeGet('c2w_device', '');
+  chipList.value = safeGet('c2w_chips', DEFAULT_CHIPS);
+  sheetUrl.addEventListener('input', () => { safeSet('c2w_sheet_url', sheetUrl.value.trim()); updateSyncStatus(); });
+  sheetKey.addEventListener('input', () => { safeSet('c2w_sheet_key', sheetKey.value.trim()); updateSyncStatus(); });
+  deviceName.addEventListener('input', () => safeSet('c2w_device', deviceName.value.trim()));
+  chipList.addEventListener('input', () => { safeSet('c2w_chips', chipList.value); renderChips(); });
+
+  function renderChips() {
+    const names = chipList.value.split(',').map((c) => c.trim()).filter(Boolean);
+    chipsEl.textContent = '';
+    names.forEach((name) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = name;
+      b.setAttribute('aria-pressed', visitor.interests.includes(name) ? 'true' : 'false');
+      b.addEventListener('click', () => {
+        const on = !visitor.interests.includes(name);
+        visitor.interests = on ? visitor.interests.concat(name) : visitor.interests.filter((n) => n !== name);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      chipsEl.appendChild(b);
+    });
+  }
+  renderChips();
+
+  function saveQueue() { safeSet('c2w_queue', JSON.stringify(queue)); }
+  function todayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function updateCount() {
+    const n = (log[todayKey()] || []).length;
+    todayCount.textContent = n ? 'Visitors today on this phone: ' + n : '';
+  }
+
+  function hasVisitorDetails() {
+    return numberInput.value.replace(/\D/g, '').length >= 6 || visitorName.value.trim() ||
+      notesBox.value.trim() || visitor.interests.length > 0;
+  }
+
+  // Save (or update) the current visitor in the local queue, then try to send.
+  function recordVisitor(whatsapp) {
+    if (!hasVisitorDetails()) return false;
+    const existing = queue.find((r) => r.id === visitor.id);
+    const rec = {
+      id: visitor.id,
+      createdAt: visitor.createdAt,
+      phone: numberInput.value.trim(),
+      name: visitorName.value.trim(),
+      interests: visitor.interests.slice(),
+      notes: notesBox.value.trim(),
+      whatsapp: whatsapp || !!(existing && existing.whatsapp) || !!visitor.whatsapp,
+      device: deviceName.value.trim(),
+      ocrText: visitor.ocrText,
+      rev: Date.now(),
+    };
+    visitor.whatsapp = rec.whatsapp;
+    queue = queue.filter((r) => r.id !== rec.id).concat(rec);
+    saveQueue();
+    const day = todayKey();
+    log[day] = log[day] || [];
+    if (!log[day].includes(rec.id)) log[day].push(rec.id);
+    // keep only the last 30 days of ids
+    Object.keys(log).sort().slice(0, -30).forEach((k) => delete log[k]);
+    safeSet('c2w_log', JSON.stringify(log));
+    updateCount();
+    flushQueue();
+    return true;
+  }
+
+  let flushing = false;
+  let lastError = '';
+  async function flushQueue() {
+    const url = sheetUrl.value.trim();
+    const key = sheetKey.value.trim();
+    if (flushing || !queue.length || !url || !key) { updateSyncStatus(); return; }
+    if (navigator.onLine === false) { updateSyncStatus(); return; }
+    flushing = true;
+    updateSyncStatus();
+    const batch = queue.slice(0, 50);
+    try {
+      // text/plain keeps this a "simple" request: no CORS preflight, which
+      // Apps Script can't answer. keepalive lets it finish if WhatsApp takes over.
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ key: key, records: batch }),
+        redirect: 'follow',
+        keepalive: JSON.stringify(batch).length < 60000,
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error === 'bad-key' ? 'secret phrase doesn\u2019t match the script' : (data.error || 'sheet error'));
+      const sent = {};
+      batch.forEach((r) => { sent[r.id] = r.rev; });
+      // Drop only what was confirmed; keep anything edited while sending.
+      queue = queue.filter((r) => !(data.saved || []).includes(r.id) || r.rev !== sent[r.id]);
+      saveQueue();
+      lastError = '';
+    } catch (e) {
+      lastError = (e && e.message) || 'network error';
+    } finally {
+      flushing = false;
+      updateSyncStatus();
+    }
+    if (!lastError && queue.length) setTimeout(flushQueue, 500);
+  }
+
+  function updateSyncStatus() {
+    syncStatus.className = '';
+    if (!sheetUrl.value.trim() || !sheetKey.value.trim()) {
+      syncStatus.textContent = queue.length ? queue.length + ' saved here · sheet not set up' : 'Sheet not set up';
+      syncStatus.className = 'warn';
+    } else if (flushing) {
+      syncStatus.textContent = 'Sending to sheet…';
+    } else if (queue.length) {
+      syncStatus.textContent = queue.length + ' waiting to send' + (navigator.onLine === false ? ' (offline)' : '');
+      if (lastError) syncStatus.className = 'warn';
+    } else {
+      syncStatus.textContent = '✓ Sheet up to date';
+      syncStatus.className = 'ok';
+    }
+    settingsHint.textContent = lastError
+      ? 'Last try failed: ' + lastError + '. Will retry automatically.'
+      : 'Visitors are saved on this phone first and sent to the sheet whenever there\u2019s signal.';
+  }
+
+  testSyncBtn.addEventListener('click', async () => {
+    const url = sheetUrl.value.trim();
+    if (!url) { settingsHint.textContent = 'Paste the web app URL first.'; return; }
+    settingsHint.textContent = 'Checking…';
+    try {
+      const data = await (await fetch(url, { redirect: 'follow' })).json();
+      if (!data.ok) throw new Error('unexpected reply');
+      settingsHint.textContent = 'Connected to the sheet ✓' + (queue.length ? ' Sending ' + queue.length + '…' : '');
+      lastError = '';
+      flushQueue();
+    } catch (e) {
+      settingsHint.textContent = 'Couldn\u2019t reach the script — check the URL ends in /exec and access is set to Anyone.';
+    }
+  });
+
+  saveOnlyBtn.addEventListener('click', () => {
+    if (recordVisitor(false)) {
+      sendHint.classList.remove('warn');
+      sendHint.textContent = 'Visitor saved.';
+    } else {
+      sendHint.classList.add('warn');
+      sendHint.textContent = 'Add a number, name, interest or note first.';
+    }
+  });
+
+  nextBtn.addEventListener('click', () => {
+    // Keep what was entered even if WhatsApp wasn't used.
+    if (queue.some((r) => r.id === visitor.id) || hasVisitorDetails()) recordVisitor(false);
+    visitor = { id: newId(), createdAt: new Date().toISOString(), ocrText: '', interests: [] };
+    numberInput.value = '';
+    visitorName.value = '';
+    notesBox.value = '';
+    fileInput.value = '';
+    previewRow.style.display = 'none';
+    setOcrDetail('');
+    linkOut.hidden = true;
+    numberHint.textContent = 'Not detected yet — type it in once you have it, or edit what was found.';
+    sendHint.classList.remove('warn');
+    sendHint.textContent = 'WhatsApp will open with everything filled in — you just tap Send there.';
+    renderChips();
+    updateSendState();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // Keep the saved row in step with edits made after WhatsApp was opened.
+  [numberInput, visitorName, notesBox].forEach((el) => el.addEventListener('change', () => {
+    if (queue.some((r) => r.id === visitor.id) || visitor.whatsapp) recordVisitor(false);
+  }));
+  chipsEl.addEventListener('click', () => {
+    if (visitor.whatsapp) recordVisitor(false);
+  });
+
+  window.addEventListener('online', flushQueue);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flushQueue(); });
+  setInterval(flushQueue, 60000);
+  updateCount();
+  flushQueue();
 })();
 
 // --- offline support ---
