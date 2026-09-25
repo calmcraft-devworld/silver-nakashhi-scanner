@@ -1,0 +1,15 @@
+{
+  "name": "Card → WhatsApp",
+  "short_name": "Card→WA",
+  "description": "Scan a visitor's card, confirm the number, send your thank-you message on WhatsApp.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1c1b1a",
+  "theme_color": "#1c1b1a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

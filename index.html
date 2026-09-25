@@ -4,10 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Card → WhatsApp</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#1c1b1a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
+  /* Fonts are bundled locally so the page needs no network after the first visit. */
+  @font-face { font-family: 'Inter'; font-weight: 400; font-display: swap; src: url(vendor/fonts/inter-latin-400-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 500; font-display: swap; src: url(vendor/fonts/inter-latin-500-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Inter'; font-weight: 600; font-display: swap; src: url(vendor/fonts/inter-latin-600-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Fraunces'; font-weight: 500; font-display: swap; src: url(vendor/fonts/fraunces-latin-500-normal.woff2) format('woff2'); }
+  @font-face { font-family: 'Fraunces'; font-weight: 600; font-display: swap; src: url(vendor/fonts/fraunces-latin-600-normal.woff2) format('woff2'); }
   :root {
     --bg: #1c1b1a;
     --bg-panel: #242322;
@@ -125,7 +132,7 @@
     flex-shrink: 0;
   }
   .ocr-status { font-size: 0.85rem; color: var(--ink-dim); }
-  .ocr-status.found { color: var(--brass); }
+  .ocr-status .found { color: var(--brass); }
 
   label {
     display: block;
@@ -200,6 +207,27 @@
     line-height: 1.5;
   }
   .hint.warn { color: var(--danger); }
+  .ocr-detail {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--silver-dim);
+    margin-top: 2px;
+    word-break: break-word;
+  }
+  .frame-note {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--ink-dim);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+  .link-out {
+    margin-top: 10px;
+    font-size: 0.8rem !important;
+    padding: 10px 12px !important;
+  }
   footer {
     text-align: center;
     font-size: 0.76rem;
@@ -221,7 +249,7 @@
     <input type="file" id="fileInput" accept="image/*" capture="environment">
     <div class="preview-row" id="previewRow" style="display:none;">
       <img id="thumb" class="thumb" alt="Card preview">
-      <div class="ocr-status" id="ocrStatus">Reading card…</div>
+      <div class="ocr-status"><span id="ocrStatus">Reading card…</span><span class="ocr-detail" id="ocrDetail"></span></div>
     </div>
   </div>
 
@@ -246,14 +274,19 @@
     </div>
   </div>
 
+  <div class="frame-note" id="frameNote" hidden>
+    Tip: if tapping the button below doesn't open WhatsApp, open this page in Chrome or Safari instead, or use “Copy WhatsApp link”.
+  </div>
+
   <a class="send-btn" id="sendBtn" href="#" target="_top" rel="noopener" aria-disabled="true">Open WhatsApp with this message</a>
   <button class="copy-btn" id="copyBtn" type="button" aria-disabled="true">Copy WhatsApp link instead</button>
+  <input type="text" id="linkOut" class="link-out" readonly hidden aria-label="WhatsApp link">
   <div class="hint" id="sendHint">WhatsApp will open with everything filled in — you just tap Send there.</div>
 
-  <footer>Runs entirely in your browser. Nothing is uploaded anywhere.</footer>
+  <footer>Runs entirely in your browser. Nothing is uploaded anywhere.<br><span id="offlineStatus"></span></footer>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="vendor/tesseract/tesseract.min.js"></script>
 <script>
 (function () {
   const fileInput = document.getElementById('fileInput');
@@ -268,6 +301,15 @@
   const sendBtn = document.getElementById('sendBtn');
   const copyBtn = document.getElementById('copyBtn');
   const sendHint = document.getElementById('sendHint');
+  const ocrDetail = document.getElementById('ocrDetail');
+  const frameNote = document.getElementById('frameNote');
+  const linkOut = document.getElementById('linkOut');
+
+  // Published Artifacts render inside an iframe; some in-app browsers won't let
+  // a framed page hand off to WhatsApp, so say so up front.
+  let framed = false;
+  try { framed = window.self !== window.top; } catch (e) { framed = true; }
+  if (framed) frameNote.hidden = false;
 
   const DEFAULT_TEMPLATE = "Hi! 😊 Thank you for stopping by {{business}} at the exhibition today. Sharing our catalog and visiting card here — do take a look, and feel free to reach out anytime for orders or questions.\n\nWarm regards,\n{{business}}";
 
@@ -295,7 +337,7 @@
 
   function buildWaLink() {
     const rawNumber = numberInput.value.replace(/[^\d+]/g, '');
-    const number = rawNumber.replace(/^0+/, '').replace('+', '');
+    const number = rawNumber.replace(/^0+/, '').replace(/\+/g, '');
     const message = messageBox.value.trim();
     return 'https://wa.me/' + encodeURIComponent(number) + '?text=' + encodeURIComponent(message);
   }
@@ -317,19 +359,93 @@
   copyBtn.addEventListener('click', async () => {
     if (copyBtn.getAttribute('aria-disabled') === 'true') return;
     const link = buildWaLink();
-    try {
-      await navigator.clipboard.writeText(link);
-      sendHint.textContent = 'Link copied — paste it into your phone’s browser address bar.';
-    } catch (e) {
-      sendHint.textContent = 'Could not copy automatically. Long-press the button above to copy the link.';
+    sendHint.classList.remove('warn');
+    if (await copyText(link)) {
+      linkOut.hidden = true;
+      sendHint.textContent = 'Link copied — paste it into your phone\u2019s browser address bar.';
+    } else {
+      // Show the link itself so it can be selected and copied by hand.
+      linkOut.value = link;
+      linkOut.hidden = false;
+      linkOut.focus();
+      linkOut.select();
+      sendHint.textContent = 'Could not copy automatically — long-press the link above and choose Copy.';
     }
   });
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) { /* fall through: iframes often lack clipboard-write permission */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
   numberInput.addEventListener('input', updateSendState);
   messageBox.addEventListener('input', updateSendState);
   updateSendState();
 
   // --- capture + OCR ---
-  captureBtn.addEventListener('click', () => fileInput.click());
+  // One OCR worker, warmed up on page load so a photo can be read straight away.
+  // Engine, wasm core and language data are all served from this site (vendor/)
+  // and cached by the service worker, so OCR works offline.
+  let workerPromise = null;
+  let ocrStage = 'loading engine';
+  function setOcrDetail(text) { ocrDetail.textContent = text || ''; }
+  function getWorker() {
+    if (workerPromise) return workerPromise;
+    if (typeof Tesseract === 'undefined') {
+      return Promise.reject(new Error('OCR script did not load'));
+    }
+    ocrStage = 'loading engine';
+    workerPromise = Tesseract.createWorker('eng', 1, {
+      logger: (m) => {
+        if (!m || !m.status) return;
+        const pct = typeof m.progress === 'number' ? ' ' + Math.round(m.progress * 100) + '%' : '';
+        if (m.status === 'recognizing text') {
+          setOcrDetail('Reading' + pct);
+        } else if (ocrStage === 'loading engine') {
+          setOcrDetail(m.status + pct);
+        }
+      },
+      workerPath: 'vendor/tesseract/worker.min.js',
+      corePath: 'vendor/tesseract-core/',
+      langPath: 'vendor/lang',
+      workerBlobURL: false,
+      errorHandler: () => { /* surfaced via the rejected promise */ },
+    }).then((worker) => {
+      ocrStage = 'reading text';
+      return worker;
+    }, (err) => {
+      workerPromise = null; // allow a retry on the next photo
+      throw err;
+    });
+    return workerPromise;
+  }
+  function describeError(err) {
+    const msg = (err && (err.message || String(err))) || 'unknown error';
+    return 'Failed while ' + ocrStage + ': ' + msg.slice(0, 140);
+  }
+
+  captureBtn.addEventListener('click', () => {
+    getWorker().catch(() => { /* reported when a photo is processed */ });
+    fileInput.click();
+  });
+  window.addEventListener('load', () => {
+    getWorker().catch(() => { /* reported when a photo is processed */ });
+  });
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files && fileInput.files[0];
@@ -340,6 +456,7 @@
     previewRow.style.display = 'flex';
     ocrStatus.textContent = 'Reading card…';
     ocrStatus.classList.remove('found');
+    setOcrDetail('');
     numberHint.textContent = 'Looking for a phone number on the card…';
 
     let timedOut = false;
@@ -347,12 +464,13 @@
       timedOut = true;
       ocrStatus.textContent = "Couldn't auto-read it — type the number in below.";
       numberHint.textContent = 'Type the number in above — that always works.';
+      setOcrDetail('Timed out while ' + ocrStage + '.');
     }, 15000);
 
     try {
-      if (typeof Tesseract === 'undefined') throw new Error('ocr-unavailable');
-
-      const result = await Tesseract.recognize(url, 'eng');
+      const worker = await getWorker();
+      if (timedOut) return;
+      const result = await worker.recognize(url);
       clearTimeout(timeout);
       if (timedOut) return;
 
@@ -364,15 +482,18 @@
         ocrStatus.textContent = 'Number found — check it looks right.';
         ocrStatus.classList.add('found');
         numberHint.textContent = 'Auto-detected — please double-check before sending.';
+        setOcrDetail('');
       } else {
         ocrStatus.textContent = "Couldn't find a number on the card — type it in below.";
         numberHint.textContent = 'Type the number in above.';
+        setOcrDetail('');
       }
     } catch (err) {
       clearTimeout(timeout);
       if (!timedOut) {
         ocrStatus.textContent = "Auto-read isn't working right now — type the number in below.";
         numberHint.textContent = 'Type the number in above — that always works.';
+        setOcrDetail(describeError(err));
       }
     } finally {
       updateSendState();
@@ -404,7 +525,41 @@
       return;
     }
     // href is already set to the live wa.me link; let the browser navigate natively.
-    sendHint.textContent = 'Opened WhatsApp — tap Send there to finish.';
+    sendHint.classList.remove('warn');
+    sendHint.textContent = 'Opening WhatsApp — tap Send there to finish.';
+
+    // If WhatsApp took over, this page gets hidden or loses focus. If neither
+    // happens, assume the handoff was blocked and point to the copy fallback.
+    let left = false;
+    const markLeft = () => { left = true; };
+    document.addEventListener('visibilitychange', markLeft, { once: true });
+    window.addEventListener('pagehide', markLeft, { once: true });
+    window.addEventListener('blur', markLeft, { once: true });
+    setTimeout(() => {
+      document.removeEventListener('visibilitychange', markLeft);
+      window.removeEventListener('pagehide', markLeft);
+      window.removeEventListener('blur', markLeft);
+      if (left || document.visibilityState === 'hidden') return;
+      sendHint.classList.add('warn');
+      sendHint.textContent = framed
+        ? 'WhatsApp didn\u2019t seem to open — this in-app view may be blocking it. Tap “Copy WhatsApp link” and paste it into Chrome/Safari, or open this page there.'
+        : 'WhatsApp didn\u2019t seem to open. Tap “Copy WhatsApp link” and paste it into your browser.';
+    }, 2500);
+  });
+})();
+
+// --- offline support ---
+(function () {
+  const offlineStatus = document.getElementById('offlineStatus');
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(async () => {
+    const cached = await caches.match('vendor/lang/eng.traineddata.gz');
+    offlineStatus.textContent = cached
+      ? '✓ Saved on this phone — works without internet.'
+      : 'Saving for offline use…';
+  }).catch(() => { /* still works online */ });
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data === 'c2w-cached') offlineStatus.textContent = '✓ Saved on this phone — works without internet.';
   });
 })();
 </script>
