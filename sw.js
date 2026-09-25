@@ -2,7 +2,8 @@
 // Everything the page needs (including the OCR engine and language data) is
 // stored on the phone on the first visit, so later visits need no network.
 // Bump VERSION whenever any cached file changes.
-const VERSION = 'c2w-v4';
+const VERSION = 'c2w-v5';
+const SCOPE_PATH = new URL('./', self.location).pathname;
 
 const SHELL = [
   './',
@@ -57,23 +58,28 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Page: serve the cached copy instantly, refresh it in the background.
-  if (req.mode === 'navigate') {
+  // The app page: try the network first so edits (like the message) show up
+  // right away, but give up after a few seconds on a weak signal and use the
+  // saved copy. Other pages (e.g. catalog.pdf) are left alone.
+  const isAppPage = url.pathname === SCOPE_PATH || url.pathname === SCOPE_PATH + 'index.html';
+  if (req.mode === 'navigate' && isAppPage) {
     event.respondWith((async () => {
       const cache = await caches.open(VERSION);
-      const cached = await cache.match('index.html');
-      const fresh = fetch(req).then((res) => {
+      const fresh = fetch(req, { cache: 'no-cache' }).then((res) => {
         if (res.ok) cache.put('index.html', res.clone());
         return res;
-      }).catch(() => null);
-      if (cached) {
-        event.waitUntil(fresh);
-        return cached;
-      }
-      return (await fresh) || Response.error();
+      });
+      const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+      try {
+        const res = await Promise.race([fresh, timeout]);
+        if (res && res.ok) return res;
+      } catch (e) { /* offline */ }
+      event.waitUntil(fresh.catch(() => null));
+      return (await cache.match('index.html')) || fresh;
     })());
     return;
   }
+  if (req.mode === 'navigate') return;
 
   // Everything else: cache first, and keep a copy of anything new.
   event.respondWith((async () => {

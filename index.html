@@ -339,6 +339,7 @@
     <div class="field">
       <label for="messageBox">Message</label>
       <textarea id="messageBox"></textarea>
+      <button class="copy-btn" id="resetMsgBtn" type="button" style="margin-top:8px">Reset to the standard message</button>
     </div>
   </div>
 
@@ -458,6 +459,11 @@
 
   businessName.addEventListener('input', () => {
     safeSet('c2w_business', businessName.value);
+  });
+  document.getElementById('resetMsgBtn').addEventListener('click', () => {
+    try { localStorage.removeItem('c2w_template_v2'); } catch (e) { /* ignore */ }
+    messageBox.value = fillTemplate(DEFAULT_TEMPLATE, businessName.value.trim() || DEFAULT_BUSINESS);
+    updateSendState();
   });
   messageBox.addEventListener('input', () => {
     // store raw text as the template going forward (no further placeholder substitution)
