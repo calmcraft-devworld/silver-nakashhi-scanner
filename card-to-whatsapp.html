@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Card → WhatsApp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1c1b1a;
+    --bg-panel: #242322;
+    --ink: #f1ede4;
+    --ink-dim: #b9b3a6;
+    --silver: #c7cbd1;
+    --silver-dim: #7d818a;
+    --brass: #c9a227;
+    --brass-hover: #ddb536;
+    --line: #38362f;
+    --danger: #d9776a;
+    --radius: 14px;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f4f2ee;
+      --bg-panel: #ffffff;
+      --ink: #1f1d1a;
+      --ink-dim: #6b6659;
+      --silver: #5c6470;
+      --silver-dim: #9aa0a8;
+      --brass: #a9800f;
+      --brass-hover: #8f6c0d;
+      --line: #e3ded3;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1c1b1a; --bg-panel: #242322; --ink: #f1ede4; --ink-dim: #b9b3a6;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 28px 20px 40px;
+  }
+  header { margin-bottom: 22px; }
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.6rem;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  h1 .metal { color: var(--silver); }
+  header p { margin: 0; color: var(--ink-dim); font-size: 0.92rem; line-height: 1.5; }
+
+  .step {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .step-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+    margin-bottom: 12px;
+  }
+  .step-num {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 1px solid var(--silver-dim);
+    color: var(--silver);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+  }
+
+  .capture-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px dashed var(--silver-dim);
+    background: transparent;
+    color: var(--ink);
+    font-size: 0.95rem;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .capture-btn:active { background: rgba(199,203,209,0.08); }
+  input[type="file"] { display: none; }
+
+  .preview-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .thumb {
+    width: 56px; height: 56px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  .ocr-status { font-size: 0.85rem; color: var(--ink-dim); }
+  .ocr-status.found { color: var(--brass); }
+
+  label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+    margin-bottom: 6px;
+  }
+  input[type="text"], input[type="tel"], textarea {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 1rem;
+  }
+  input[type="text"]:focus, input[type="tel"]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--silver-dim);
+  }
+  textarea { resize: vertical; min-height: 108px; line-height: 1.5; }
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+
+  .send-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    border-radius: 10px;
+    border: none;
+    background: var(--brass);
+    color: #1c1b1a;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 1rem;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .send-btn:active { background: var(--brass-hover); }
+  .send-btn[aria-disabled="true"] {
+    background: var(--line);
+    color: var(--ink-dim);
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .copy-btn {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-dim);
+    font-family: inherit;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+  .copy-btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .hint {
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+  .hint.warn { color: var(--danger); }
+  footer {
+    text-align: center;
+    font-size: 0.76rem;
+    color: var(--silver-dim);
+    margin-top: 22px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Card <span class="metal">→</span> WhatsApp</h1>
+    <p>Scan a visitor's card, confirm the number, send your thank-you message.</p>
+  </header>
+
+  <div class="step">
+    <div class="step-label"><span class="step-num">1</span> Photograph the card</div>
+    <button class="capture-btn" id="captureBtn" type="button">📇 &nbsp;Take a photo of the card</button>
+    <input type="file" id="fileInput" accept="image/*" capture="environment">
+    <div class="preview-row" id="previewRow" style="display:none;">
+      <img id="thumb" class="thumb" alt="Card preview">
+      <div class="ocr-status" id="ocrStatus">Reading card…</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-label"><span class="step-num">2</span> Confirm the number</div>
+    <div class="field">
+      <label for="numberInput">WhatsApp number (with country code)</label>
+      <input type="tel" id="numberInput" placeholder="+91 98765 43210" inputmode="tel">
+    </div>
+    <div class="hint" id="numberHint">Not detected yet — type it in once you have it, or edit what was found.</div>
+  </div>
+
+  <div class="step">
+    <div class="step-label"><span class="step-num">3</span> Your message</div>
+    <div class="field">
+      <label for="businessName">Your business name (saved on this phone)</label>
+      <input type="text" id="businessName" placeholder="e.g. Anand Silver House">
+    </div>
+    <div class="field">
+      <label for="messageBox">Message</label>
+      <textarea id="messageBox"></textarea>
+    </div>
+  </div>
+
+  <a class="send-btn" id="sendBtn" href="#" target="_top" rel="noopener" aria-disabled="true">Open WhatsApp with this message</a>
+  <button class="copy-btn" id="copyBtn" type="button" aria-disabled="true">Copy WhatsApp link instead</button>
+  <div class="hint" id="sendHint">WhatsApp will open with everything filled in — you just tap Send there.</div>
+
+  <footer>Runs entirely in your browser. Nothing is uploaded anywhere.</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script>
+(function () {
+  const fileInput = document.getElementById('fileInput');
+  const captureBtn = document.getElementById('captureBtn');
+  const previewRow = document.getElementById('previewRow');
+  const thumb = document.getElementById('thumb');
+  const ocrStatus = document.getElementById('ocrStatus');
+  const numberInput = document.getElementById('numberInput');
+  const numberHint = document.getElementById('numberHint');
+  const businessName = document.getElementById('businessName');
+  const messageBox = document.getElementById('messageBox');
+  const sendBtn = document.getElementById('sendBtn');
+  const copyBtn = document.getElementById('copyBtn');
+  const sendHint = document.getElementById('sendHint');
+
+  const DEFAULT_TEMPLATE = "Hi! 😊 Thank you for stopping by {{business}} at the exhibition today. Sharing our catalog and visiting card here — do take a look, and feel free to reach out anytime for orders or questions.\n\nWarm regards,\n{{business}}";
+
+  // --- persistence (per-device convenience only) ---
+  function safeGet(key, fallback) {
+    try { const v = localStorage.getItem(key); return v === null ? fallback : v; }
+    catch (e) { return fallback; }
+  }
+  function safeSet(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* ignore */ }
+  }
+
+  const savedBusiness = safeGet('c2w_business', '');
+  const savedTemplate = safeGet('c2w_template', DEFAULT_TEMPLATE);
+  businessName.value = savedBusiness;
+  messageBox.value = savedTemplate.replace(/\{\{business\}\}/g, savedBusiness || '[Your Business Name]');
+
+  businessName.addEventListener('input', () => {
+    safeSet('c2w_business', businessName.value);
+  });
+  messageBox.addEventListener('input', () => {
+    // store raw text as the template going forward (no further placeholder substitution)
+    safeSet('c2w_template', messageBox.value);
+  });
+
+  function buildWaLink() {
+    const rawNumber = numberInput.value.replace(/[^\d+]/g, '');
+    const number = rawNumber.replace(/^0+/, '').replace('+', '');
+    const message = messageBox.value.trim();
+    return 'https://wa.me/' + encodeURIComponent(number) + '?text=' + encodeURIComponent(message);
+  }
+
+  function updateSendState() {
+    const digits = numberInput.value.replace(/\D/g, '');
+    const valid = digits.length >= 8 && !!messageBox.value.trim();
+    if (valid) {
+      sendBtn.href = buildWaLink();
+      sendBtn.removeAttribute('aria-disabled');
+      copyBtn.removeAttribute('aria-disabled');
+    } else {
+      sendBtn.href = '#';
+      sendBtn.setAttribute('aria-disabled', 'true');
+      copyBtn.setAttribute('aria-disabled', 'true');
+    }
+  }
+
+  copyBtn.addEventListener('click', async () => {
+    if (copyBtn.getAttribute('aria-disabled') === 'true') return;
+    const link = buildWaLink();
+    try {
+      await navigator.clipboard.writeText(link);
+      sendHint.textContent = 'Link copied — paste it into your phone’s browser address bar.';
+    } catch (e) {
+      sendHint.textContent = 'Could not copy automatically. Long-press the button above to copy the link.';
+    }
+  });
+  numberInput.addEventListener('input', updateSendState);
+  messageBox.addEventListener('input', updateSendState);
+  updateSendState();
+
+  // --- capture + OCR ---
+  captureBtn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    thumb.src = url;
+    previewRow.style.display = 'flex';
+    ocrStatus.textContent = 'Reading card…';
+    ocrStatus.classList.remove('found');
+    numberHint.textContent = 'Looking for a phone number on the card…';
+
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      ocrStatus.textContent = "Couldn't auto-read it — type the number in below.";
+      numberHint.textContent = 'Type the number in above — that always works.';
+    }, 15000);
+
+    try {
+      if (typeof Tesseract === 'undefined') throw new Error('ocr-unavailable');
+
+      const result = await Tesseract.recognize(url, 'eng');
+      clearTimeout(timeout);
+      if (timedOut) return;
+
+      const text = (result && result.data && result.data.text) || '';
+      const candidate = extractPhoneNumber(text);
+
+      if (candidate) {
+        numberInput.value = candidate;
+        ocrStatus.textContent = 'Number found — check it looks right.';
+        ocrStatus.classList.add('found');
+        numberHint.textContent = 'Auto-detected — please double-check before sending.';
+      } else {
+        ocrStatus.textContent = "Couldn't find a number on the card — type it in below.";
+        numberHint.textContent = 'Type the number in above.';
+      }
+    } catch (err) {
+      clearTimeout(timeout);
+      if (!timedOut) {
+        ocrStatus.textContent = "Auto-read isn't working right now — type the number in below.";
+        numberHint.textContent = 'Type the number in above — that always works.';
+      }
+    } finally {
+      updateSendState();
+    }
+  });
+
+  function extractPhoneNumber(text) {
+    // Look for runs of digits (allowing spaces/dashes/dots) that are 10-13 digits long,
+    // optionally prefixed with +. Pick the longest plausible candidate.
+    const matches = text.match(/(\+?\d[\d\s\-.]{8,16}\d)/g) || [];
+    let best = null;
+    for (const m of matches) {
+      const digits = m.replace(/[^\d]/g, '');
+      if (digits.length >= 10 && digits.length <= 13) {
+        if (!best || digits.length > best.replace(/[^\d]/g, '').length) {
+          best = m.trim();
+        }
+      }
+    }
+    if (!best) return null;
+    // Normalize spacing a little
+    return best.replace(/\s+/g, ' ').trim();
+  }
+
+  // --- send ---
+  sendBtn.addEventListener('click', (e) => {
+    if (sendBtn.getAttribute('aria-disabled') === 'true') {
+      e.preventDefault();
+      return;
+    }
+    // href is already set to the live wa.me link; let the browser navigate natively.
+    sendHint.textContent = 'Opened WhatsApp — tap Send there to finish.';
+  });
+})();
+</script>
+</body>
+</html>
