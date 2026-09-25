@@ -60,6 +60,24 @@ Visitors are saved when you tap **Open WhatsApp**, **Copy link**, **Save
 visitor without WhatsApp** or **Next visitor**. With no signal they wait on the
 phone ("3 waiting to send") and go through automatically when it's back.
 
+## Not updating? Troubleshooting
+
+On the phone, open **Google Sheet sync & settings** and tap **Test & sync now**.
+It tells you exactly what's wrong. If the status line at the bottom says
+"… waiting to send — tap for why", tap it for the same explanation.
+
+| Message | Fix |
+|---|---|
+| *Sheet not set up* | Paste the Web app URL and the secret phrase in the settings panel on that phone. Each phone needs this once. |
+| *Google asked for a login* / *couldn't reach the script* | Deploy → Manage deployments → ✏️ Edit → **Who has access: Anyone** (not "Anyone with a Google account", not "Only myself") → Version: New version → Deploy. |
+| *that's the test (/dev) URL* | Use the **Web app** URL ending in `/exec` from Deploy → Manage deployments, not the one from "Test deployments". |
+| *secret phrase doesn't match* | The phrase on the phone must match `SECRET` in Code.gs exactly (capitals, spaces). |
+| *script replied with an error … not attached to a sheet* | The script was created outside the sheet. Either recreate it from the sheet's Extensions → Apps Script, or set `SPREADSHEET_ID` in Code.gs. |
+| *script replied with an error* (anything else) | Make sure all of Code.gs was pasted, click Save, then Deploy → Manage deployments → Edit → **New version** → Deploy. Saving alone doesn't update the live web app. |
+
+Rows go to the **first tab** of the sheet unless `SHEET_NAME` is set, so check
+that tab.
+
 ## Changing the script later
 
 After editing `Code.gs`, use **Deploy → Manage deployments → Edit → Version:

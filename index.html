@@ -806,6 +806,49 @@
     return true;
   }
 
+  // Send records to the Apps Script. Returns its JSON reply, or throws an error
+  // whose message says in plain words what to fix.
+  async function postToSheet(url, key, records) {
+    if (!/^https:\/\/script\.google\.com\/.*\/exec(\?.*)?$/.test(url)) {
+      throw new Error(/\/dev(\?|$)/.test(url)
+        ? 'that\u2019s the test (/dev) URL \u2014 use the Web app URL ending in /exec from Deploy \u2192 Manage deployments'
+        : 'the URL should start with https://script.google.com/ and end in /exec');
+    }
+    const body = JSON.stringify({ key: key, records: records });
+    let res;
+    try {
+      // text/plain keeps this a "simple" request: no CORS preflight, which
+      // Apps Script can't answer. keepalive lets it finish if WhatsApp takes over.
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: body,
+        redirect: 'follow',
+        keepalive: body.length < 60000,
+      });
+    } catch (e) {
+      throw new Error(navigator.onLine === false
+        ? 'no internet'
+        : 'couldn\u2019t reach the script. Most often the deployment\u2019s \u201cWho has access\u201d isn\u2019t set to \u201cAnyone\u201d, or the URL is from an old deployment');
+    }
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch (e) {
+      if (/accounts\.google\.com|ServiceLogin|signin/i.test(text)) {
+        throw new Error('Google asked for a login \u2014 redeploy with \u201cWho has access: Anyone\u201d');
+      }
+      const title = (text.match(/<title>([^<]*)<\/title>/i) || [])[1] || '';
+      const detail = (text.replace(/<[^>]+>/g, ' ').match(/(TypeError|ReferenceError|SyntaxError|Exception)[^.]{0,140}/) || [])[0] || title;
+      throw new Error('the script replied with an error (HTTP ' + res.status + ')' + (detail ? ': ' + detail.trim() : '') + '. Check Code.gs was pasted in full and redeployed as a new version');
+    }
+    if (!data.ok) {
+      throw new Error(data.error === 'bad-key'
+        ? 'the secret phrase on this phone doesn\u2019t match SECRET in the script (check spaces and capitals)'
+        : 'the script said: ' + (data.error || 'unknown error'));
+    }
+    return data;
+  }
+
   let flushing = false;
   let lastError = '';
   async function flushQueue() {
@@ -817,17 +860,7 @@
     updateSyncStatus();
     const batch = queue.slice(0, 50);
     try {
-      // text/plain keeps this a "simple" request: no CORS preflight, which
-      // Apps Script can't answer. keepalive lets it finish if WhatsApp takes over.
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ key: key, records: batch }),
-        redirect: 'follow',
-        keepalive: JSON.stringify(batch).length < 60000,
-      });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error === 'bad-key' ? 'secret phrase doesn\u2019t match the script' : (data.error || 'sheet error'));
+      const data = await postToSheet(url, key, batch);
       const sent = {};
       batch.forEach((r) => { sent[r.id] = r.rev; });
       // Drop only what was confirmed; keep anything edited while sending.
@@ -851,12 +884,14 @@
     } else if (flushing) {
       syncStatus.textContent = 'Sending to sheet…';
     } else if (queue.length) {
-      syncStatus.textContent = queue.length + ' waiting to send' + (navigator.onLine === false ? ' (offline)' : '');
+      syncStatus.textContent = queue.length + ' waiting to send' +
+        (navigator.onLine === false ? ' (offline)' : lastError ? ' \u2014 tap for why' : '');
       if (lastError) syncStatus.className = 'warn';
     } else {
       syncStatus.textContent = '✓ Sheet up to date';
       syncStatus.className = 'ok';
     }
+    settingsHint.classList.toggle('warn', !!lastError);
     settingsHint.textContent = lastError
       ? 'Last try failed: ' + lastError + '. Will retry automatically.'
       : 'Visitors are saved on this phone first and sent to the sheet whenever there\u2019s signal.';
@@ -865,16 +900,30 @@
   testSyncBtn.addEventListener('click', async () => {
     const url = sheetUrl.value.trim();
     if (!url) { settingsHint.textContent = 'Paste the web app URL first.'; return; }
+    const key = sheetKey.value.trim();
+    if (!key) { settingsHint.textContent = 'Enter the secret phrase first.'; return; }
+    settingsHint.classList.remove('warn');
     settingsHint.textContent = 'Checking…';
     try {
-      const data = await (await fetch(url, { redirect: 'follow' })).json();
-      if (!data.ok) throw new Error('unexpected reply');
-      settingsHint.textContent = 'Connected to the sheet ✓' + (queue.length ? ' Sending ' + queue.length + '…' : '');
+      // An empty batch checks URL, access and secret without adding a row.
+      await postToSheet(url, key, []);
       lastError = '';
-      flushQueue();
+      await flushQueue();
+      settingsHint.classList.toggle('warn', !!lastError);
+      settingsHint.textContent = lastError
+        ? 'Connected, but sending visitors failed: ' + lastError + '.'
+        : 'Connected to the sheet ✓ ' + (queue.length ? queue.length + ' visitor(s) still to send.' : 'All visitors from this phone are in the sheet.');
     } catch (e) {
-      settingsHint.textContent = 'Couldn\u2019t reach the script — check the URL ends in /exec and access is set to Anyone.';
+      settingsHint.classList.add('warn');
+      settingsHint.textContent = 'Not working: ' + e.message + '.';
     }
+  });
+
+  syncStatus.style.cursor = 'pointer';
+  syncStatus.addEventListener('click', () => {
+    const details = document.getElementById('settings');
+    details.open = true;
+    details.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   saveOnlyBtn.addEventListener('click', () => {

@@ -16,6 +16,11 @@ const SECRET = 'CHANGE-ME-to-a-long-random-phrase';
 // Tab to write to. Leave blank to use the first tab.
 const SHEET_NAME = '';
 
+// Only needed if this script was created at script.google.com instead of from
+// the sheet's Extensions → Apps Script menu: paste the ID from the sheet's URL
+// (the long part between /d/ and /edit).
+const SPREADSHEET_ID = '';
+
 const HEADERS = [
   'Saved at',
   'Visitor ID',
@@ -90,7 +95,10 @@ function doGet() {
 }
 
 function getSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SPREADSHEET_ID
+    ? SpreadsheetApp.openById(SPREADSHEET_ID)
+    : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('Script is not attached to a sheet: set SPREADSHEET_ID');
   return (SHEET_NAME && ss.getSheetByName(SHEET_NAME)) || ss.getSheets()[0];
 }
 
