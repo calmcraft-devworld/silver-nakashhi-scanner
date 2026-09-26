@@ -2,7 +2,7 @@
 // Everything the page needs (including the OCR engine and language data) is
 // stored on the phone on the first visit, so later visits need no network.
 // Bump VERSION whenever any cached file changes.
-const VERSION = 'c2w-v8';
+const VERSION = 'c2w-v9';
 const SCOPE_PATH = new URL('./', self.location).pathname;
 
 const SHELL = [

@@ -429,7 +429,7 @@
   const INSTAGRAM_URL = 'https://www.instagram.com/silver_nakashhi/';
   const DEFAULT_BUSINESS = 'Royal Paintings';
 
-  const DEFAULT_TEMPLATE = "Hi! 😊\n\nIt was so lovely meeting you at our {{business}} stall at the SSI exhibition today. Thank you for stopping by!\n\nI\u2019ve shared our catalog and visiting card here. Have a look whenever you get a moment, and message us anytime if something catches your eye or you have any questions.\n\n📸 Instagram: {{instagram}}\n\nAnd don\u2019t worry, this is just a way for us to stay in touch, so you can get to know us better and we can hear what you\u2019re looking for. 🙏\n\nWarm regards,\n{{business}}";
+  const DEFAULT_TEMPLATE = "Hi! 😊\n\nIt was so lovely meeting you at our {{business}} stall at the SSI exhibition today. Thank you for stopping by!\n\nI\u2019ve shared our catalog and visiting card here. Have a look whenever you get a moment, and message us anytime if something catches your eye or you have any questions.\n\n📸 Instagram: {{instagram}}\n\nAnd don\u2019t worry, this is just a way for us to stay in touch, so you can get to know us better and we can hear what you\u2019re looking for. 🙏\n\nWarm regards,\n{{business}}\n📞 +91 99293 66590\n📞 +91 94141 58677";
 
   // --- persistence (per-device convenience only) ---
   function safeGet(key, fallback) {
@@ -452,7 +452,7 @@
 
   // Versioned key: bump it when the default message changes so phones pick it up.
   const savedBusiness = safeGet('c2w_business', DEFAULT_BUSINESS);
-  const savedTemplate = safeGet('c2w_template_v3', DEFAULT_TEMPLATE);
+  const savedTemplate = safeGet('c2w_template_v4', DEFAULT_TEMPLATE);
   businessName.value = savedBusiness;
   messageBox.value = fillTemplate(savedTemplate, savedBusiness);
 
@@ -479,14 +479,14 @@
     safeSet('c2w_business', businessName.value);
   });
   document.getElementById('resetMsgBtn').addEventListener('click', () => {
-    try { localStorage.removeItem('c2w_template_v3'); } catch (e) { /* ignore */ }
+    try { localStorage.removeItem('c2w_template_v4'); } catch (e) { /* ignore */ }
     messageBox.value = fillTemplate(DEFAULT_TEMPLATE, businessName.value.trim() || DEFAULT_BUSINESS);
     applyGreeting();
     updateSendState();
   });
   messageBox.addEventListener('input', () => {
     // store raw text as the template going forward (no further placeholder substitution)
-    safeSet('c2w_template_v3', genericMessage());
+    safeSet('c2w_template_v4', genericMessage());
   });
 
   function buildWaLink() {
